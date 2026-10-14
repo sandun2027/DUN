@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>src\app.manifest</ApplicationManifest>
+    <ApplicationIcon>assets\DUN.ico</ApplicationIcon>
+    <RootNamespace>DUN</RootNamespace>
+    <AssemblyName>DUN</AssemblyName>
+    <Version>0.2.0</Version>
+    <Product>DUN</Product>
+    <Authors>Sandun</Authors>
+    <Company>Sandun</Company>
+    <Copyright>Copyright (c) 2026 Sandun</Copyright>
+    <Description>Clipboard history that hangs on a line at the top of the screen.</Description>
+    <!-- WPF reads per-monitor DPI awareness from the manifest; the WinForms analyzer doesn't know that. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="assets\DUN.ico" LogicalName="DUN.ico" />
+  </ItemGroup>
+
+</Project>
