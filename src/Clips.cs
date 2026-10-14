@@ -103,8 +103,9 @@ static class Classify
 // The clipboard history. Items[0] is the most recently copied.
 sealed class ClipStore : IDisposable
 {
-    public static readonly string ImageDir = Path.Combine(Settings.DataDir, "Images");
-    static string IndexPath => Path.Combine(Settings.DataDir, "clips.json");
+    public static string Root { get; set; } = Settings.DataDir; // --shots points this at sample data
+    public static string ImageDir => Path.Combine(Root, "Images");
+    static string IndexPath => Path.Combine(Root, "clips.json");
 
     public ObservableCollection<ClipItem> Items { get; } = new();
     public event Action<ClipItem>? Bumped;  // copied again: moved back to the front
@@ -264,7 +265,7 @@ sealed class ClipStore : IDisposable
     {
         try
         {
-            Directory.CreateDirectory(Settings.DataDir);
+            Directory.CreateDirectory(Root);
             var tmp = IndexPath + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(Items.ToList()));
             File.Move(tmp, IndexPath, true);
@@ -275,7 +276,7 @@ sealed class ClipStore : IDisposable
     // The screenshot version kept its photos in Line\; bring them over once.
     void ImportOldLine()
     {
-        var old = Path.Combine(Settings.DataDir, "Line");
+        var old = Path.Combine(Root, "Line");
         if (!Directory.Exists(old)) return;
         foreach (var f in new DirectoryInfo(old).GetFiles().OrderBy(f => f.CreationTimeUtc))
         {

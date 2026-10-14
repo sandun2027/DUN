@@ -63,30 +63,37 @@ static class S
     public static string Remove => T("Delete", "删除");
 
     // Dialogs
-    public static string ShortcutTitle => T("Shortcut", "快捷键");
-    public static string ShortcutPrompt => T("Press the new shortcut. Esc cancels.", "请按下新的快捷键，Esc 取消。");
     public static string EditTitle => T("Edit text", "编辑文字");
     public static string Save => T("Save", "保存");
     public static string SaveAndCopy => T("Save and copy", "保存并复制");
     public static string Cancel => T("Cancel", "取消");
-    public static string OK => T("OK", "确定");
 
     // Settings
-    public static string SettingsTitle => T("DUN settings", "DUN 设置");
-    public static string SetShortcut => T("Shortcut", "快捷键");
-    public static string ReplaceWinV => T("Also open with Win+V (replaces Windows clipboard history)", "也用 Win+V 打开（替代系统剪贴板历史）");
-    public static string ClickAction => T("Click / Enter", "单击 / 回车");
-    public static string ClickCopy => T("Copy only (hold Shift to paste)", "仅复制（按住 Shift 则粘贴）");
-    public static string ClickPaste => T("Paste into the active window (hold Shift to copy only)", "粘贴到当前窗口（按住 Shift 则仅复制）");
-    public static string Reveal => T("Mouse", "鼠标");
-    public static string EdgeReveal => T("Show when the pointer rests at the top edge", "鼠标停在屏幕顶边时显示");
+    public static string SettingsTitle => T("Settings", "设置");
+    public static string SettingsHeading => T("Settings", "设置");
+    public static string SettingsSubtitle => T("Make DUN work your way. Everything stays on this computer.", "让 DUN 按你的习惯工作。所有内容都只保存在这台电脑上。");
+    public static string SectionShortcut => T("Shortcut", "快捷键");
+    public static string OpenClipboard => T("Open DUN", "打开 DUN");
+    public static string OpenClipboardNote => T("Search and pick with the keyboard", "用键盘搜索、挑选");
+    public static string PressShortcut => T("Press keys…", "请按下快捷键…");
+    public static string WinVTitle => T("Use Win+V", "用 Win+V 打开");
+    public static string WinVNote => T("Replaces Windows clipboard history", "替代系统自带的剪贴板历史");
+    public static string SectionHabits => T("Habits", "使用习惯");
+    public static string ClickTitle => T("Click a card", "单击卡片");
+    public static string ClickNote => T("Hold Shift for the other one", "按住 Shift 执行另一种");
+    public static string ClickCopyShort => T("Copy", "仅复制");
+    public static string ClickPasteShort => T("Paste", "直接粘贴");
+    public static string EdgeTitle => T("Top-edge reveal", "顶边呼出");
+    public static string EdgeNote => T("Show when the pointer rests at the top", "鼠标停在屏幕顶边时显示");
+    public static string SectionHistory => T("History", "历史记录");
     public static string MaxItems => T("Keep at most", "最多保留");
-    public static string ItemsSuffix => T("items (pinned don't count)", "条（固定项不计）");
+    public static string MaxItemsNote => T("Pinned cards don't count", "固定的卡片不计入");
     public static string Retention => T("Delete after", "自动删除");
     public static string Never => T("Never", "永不");
-    public static string Days => T("{0} days", "{0} 天");
-    public static string Excluded => T("Ignore apps", "忽略的程序");
-    public static string ExcludedNote => T("One program name per line, e.g. KeePass", "每行一个程序名，例如 KeePass");
-    public static string Startup => T("Startup", "启动");
+    public static string Days => T("{0} d", "{0} 天");
+    public static string SectionPrivacy => T("Privacy", "隐私");
+    public static string Excluded => T("Ignore these apps", "忽略这些程序");
+    public static string ExcludedNote => T("Copies from them are never recorded. One program name per line.", "从这些程序复制的内容不会被记录，每行一个程序名。");
     public static string StartWithWindows => T("Start with Windows", "开机启动");
+    public static string StartupNote => T("Run after you sign in", "登录 Windows 后自动运行");
 }

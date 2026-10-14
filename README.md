@@ -7,7 +7,7 @@
 
 **把剪贴板历史晾在一根绳上。**
 
-![DUN 卡片样式](docs/cards.png)
+![按下快捷键，屏幕顶部滑下一根晾衣绳，挂着最近复制的内容](docs/line.png)
 
 在 Windows 上复制的东西，包括文字、链接、代码、颜色、图片、文件，都会变成一张卡片，挂在屏幕顶部的细绳上。
 鼠标停在屏幕顶边就能看到；按快捷键可以用键盘搜索、选择、粘贴。
@@ -22,6 +22,8 @@
 - **隐私**：不需要账号、不联网、不收集任何数据；默认忽略常见密码管理器；可以随时暂停记录。
   所有内容都只保存在本机 `%LOCALAPPDATA%\DUN`。
 
+![每种内容一种卡片：便签、照片、链接、代码、色卡、文件](docs/cards.png)
+
 ## 安装
 
 在 [Releases](../../releases) 下载：
@@ -30,6 +32,8 @@
 - `DUN-x.y.z-portable.exe`：便携版，单个 exe，放哪儿都能运行。
 
 要求 Windows 10 1809 及以上的 64 位系统，已经自带 .NET 运行时，不用另装。
+
+<p align="center"><img src="docs/setup-ready.png" width="560" alt="DUN 安装程序"></p>
 
 > 程序还没有代码签名，第一次运行时 Windows 可能提示"已保护你的电脑"，点 **更多信息 → 仍要运行** 即可。
 
@@ -59,6 +63,8 @@
 托盘图标 → 设置：修改快捷键、开启 Win+V、把单击改为粘贴、最多保留条数和保留天数、要忽略的程序、开机启动。
 托盘菜单还可以暂停记录、清空历史。
 
+<p align="center"><img src="docs/settings.png" width="720" alt="DUN 设置"></p>
+
 ## 从源码构建
 
 需要 .NET 8 SDK。
@@ -69,7 +75,8 @@ powershell -File scripts\build-release.ps1   # 在 dist\ 生成安装包、便�
 ```
 
 打包还需要 [Inno Setup 6](https://jrsoftware.org/isinfo.php)（`winget install JRSoftware.InnoSetup`）。
-图标由 `scripts\make-icon.ps1` 用代码绘制；`DUN.exe --preview cards.png` 可以把所有卡片样式渲染成图片。
+图标由 `scripts\make-icon.ps1` 用代码绘制。README 里的截图由 `DUN.exe --shots docs` 生成：用示例数据离屏渲染，不会读取你的剪贴板历史；
+安装程序的截图用 `DUN-Setup-x.y.z.exe --shot docs\setup-ready.png ready`（也可以是 `installing`、`done`）。
 
 | 路径 | 内容 |
 |---|---|
@@ -80,7 +87,9 @@ powershell -File scripts\build-release.ps1   # 在 dist\ 生成安装包、便�
 | `src/CardView.cs` | 单张卡片：样式、摆动、手势 |
 | `src/Reveal.cs` | 什么时候显示、什么时候收起 |
 | `src/Actions.cs` | 复制、粘贴、拖出、打开、编辑、右键菜单 |
-| `installer/` | Inno Setup 安装脚本 |
+| `src/Dialogs.cs`、`src/Ui.cs` | 设置、编辑窗口，以及它们共用的圆角卡片、开关、分段控件 |
+| `src/Shots.cs` | 生成 README 截图 |
+| `installer/` | 安装程序：`shell/` 是安装界面（WPF），`DUN.iss` 是内嵌的 Inno Setup 安装引擎 |
 
 ## 作者
 

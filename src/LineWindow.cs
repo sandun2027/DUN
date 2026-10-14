@@ -20,8 +20,8 @@ enum Filter { All, Text, Images, Links, Files, Pinned }
 // scrolls sideways, and in keyboard mode shows a search bar and takes the keyboard focus.
 sealed class LineWindow : Window
 {
-    public const double PanelHeight = 186;
-    const double LineTop = 7, Sag = 4, CardTop = 1, Gap = 18, PinGap = 40, SideMargin = 48, Fade = 36, BarTop = 138;
+    public const double PanelHeight = 200;
+    const double LineTop = 7, Sag = 4, CardTop = 1, Gap = 18, PinGap = 40, SideMargin = 48, Fade = 36, BarTop = 154;
     static readonly Brush Dark = new SolidColorBrush(Color.FromArgb(0xE0, 0x20, 0x20, 0x20));
 
     public Forms.Screen Screen { get; }
@@ -29,6 +29,9 @@ sealed class LineWindow : Window
     public bool IsOut { get; private set; }
     public bool KeyboardMode { get; private set; }
     public event Action? Dismissed;
+
+    // Set by --shots: windows are created off screen at this size and never take focus.
+    public static Size? Stage { get; set; }
 
     readonly ClipStore store;
     readonly Actions actions;
@@ -194,6 +197,11 @@ sealed class LineWindow : Window
     {
         var b = Screen.Bounds;
         Scale = Native.ScaleAt(b.Left + b.Width / 2, b.Top + b.Height / 2);
+        if (Stage is { } stage)
+        {
+            Native.SetWindowPos(hwnd, IntPtr.Zero, -32000, -32000, (int)(stage.Width * Scale), (int)Math.Ceiling(PanelHeight * Scale), Native.SWP_NOACTIVATE);
+            return;
+        }
         Native.SetWindowPos(hwnd, Native.HWND_TOPMOST, b.Left, b.Top, b.Width,
             (int)Math.Ceiling(PanelHeight * Scale), Native.SWP_NOACTIVATE);
     }
@@ -226,7 +234,7 @@ sealed class LineWindow : Window
         SetActivatable(keyboard);
         Relayout(false);
         Native.SetWindowPos(hwnd, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
-        if (keyboard)
+        if (keyboard && Stage == null)
         {
             Native.ForceForeground(hwnd);
             Activate();

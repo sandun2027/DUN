@@ -17,6 +17,13 @@ static class Program
             preview.Run();
             return;
         }
+        if (args.Length == 2 && args[0] == "--shots")
+        {
+            var shots = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            shots.Startup += (_, _) => Shots.Run(Path.GetFullPath(args[1]), shots.Shutdown);
+            shots.Run();
+            return;
+        }
 
         using var mutex = new Mutex(true, @"Local\DUN.SingleInstance", out bool first);
         if (!first) return;

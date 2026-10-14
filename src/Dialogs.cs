@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -7,44 +8,60 @@ using System.Windows.Media;
 
 namespace DUN;
 
-// Edit a text clip before using it again.
-sealed class TextEditWindow : Window
+static class About
 {
-    public TextEditWindow(ClipItem item, ClipStore store, Actions actions)
-    {
-        Title = S.EditTitle;
-        Width = 760;
-        Height = 500;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+    public const string Author = "Sandun";
+    public const string GitHub = "https://github.com/sandun2027";
+    public const string Repo = "https://github.com/sandun2027/DUN";
+    public static string Version => typeof(About).Assembly.GetName().Version?.ToString(3) ?? "";
 
+    public static void Open(string url)
+    {
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (System.ComponentModel.Win32Exception) { }
+    }
+}
+
+// Edit a text clip before using it again.
+sealed class TextEditWindow : ChromeWindow
+{
+    public TextEditWindow(ClipItem item, ClipStore store, Actions actions) : base(S.EditTitle, 760, 540)
+    {
+        bool code = item.Kind == ClipKind.Code;
         var box = new TextBox
         {
             Text = item.Text ?? "",
             AcceptsReturn = true,
             AcceptsTab = true,
-            FontSize = 14,
-            Padding = new Thickness(6),
-            TextWrapping = item.Kind == ClipKind.Code ? TextWrapping.NoWrap : TextWrapping.Wrap,
+            TextWrapping = code ? TextWrapping.NoWrap : TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
-        if (item.Kind == ClipKind.Code) box.FontFamily = new FontFamily("Consolas");
+        var field = Fields.Wrap(box);
+        box.FontSize = 14;
+        if (code) box.FontFamily = new FontFamily("Consolas");
+        field.Padding = new Thickness(14, 12, 14, 12);
+        field.Margin = new Thickness(30, 0, 30, 0);
 
         void SaveText() => store.UpdateText(item, box.Text);
-        var save = Button(S.Save, () => { SaveText(); Close(); });
-        var saveCopy = Button(S.SaveAndCopy, () => { SaveText(); actions.Copy(item, plain: false); Close(); });
-        var cancel = Button(S.Cancel, Close);
-        cancel.IsCancel = true;
+        var cancel = new Pill(S.Cancel, false);
+        var saveCopy = new Pill(S.SaveAndCopy, false) { Margin = new Thickness(6, 0, 6, 0) };
+        var save = new Pill(S.Save, true) { MinWidth = 120 };
+        cancel.Click += Close;
+        saveCopy.Click += () => { SaveText(); actions.Copy(item, plain: false); Close(); };
+        save.Click += () => { SaveText(); Close(); };
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-        buttons.Children.Add(save);
-        buttons.Children.Add(saveCopy);
-        buttons.Children.Add(cancel);
-        var dock = new DockPanel { Margin = new Thickness(12) };
-        DockPanel.SetDock(buttons, Dock.Bottom);
-        dock.Children.Add(buttons);
-        dock.Children.Add(box);
-        Content = dock;
+        var count = Theme.Text("", 11, Theme.Faint);
+        void Count() => count.Text = string.Format(S.Chars, box.Text.Length);
+        box.TextChanged += (_, _) => Count();
+        Count();
+
+        Body.RowDefinitions.Add(new RowDefinition());
+        Body.RowDefinitions.Add(new RowDefinition { Height = new GridLength(80) });
+        Body.Children.Add(field);
+        var footer = Footer(count, cancel, saveCopy, save);
+        Grid.SetRow(footer, 1);
+        Body.Children.Add(footer);
 
         Loaded += (_, _) => { box.Focus(); box.CaretIndex = box.Text.Length; };
         PreviewKeyDown += (_, e) =>
@@ -53,126 +70,214 @@ sealed class TextEditWindow : Window
         };
     }
 
-    static Button Button(string text, Action click)
+    internal static Border Footer(UIElement left, params UIElement[] buttons)
     {
-        var b = new Button { Content = text, MinWidth = 88, Padding = new Thickness(10, 4, 10, 4), Margin = new Thickness(8, 0, 0, 0) };
-        b.Click += (_, _) => click();
-        return b;
+        var g = new Grid { Margin = new Thickness(30, 0, 30, 0) };
+        if (left is FrameworkElement fe) fe.VerticalAlignment = VerticalAlignment.Center;
+        g.Children.Add(left);
+        var right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var b in buttons) right.Children.Add(b);
+        g.Children.Add(right);
+        return new Border { BorderBrush = Theme.B(Color.FromRgb(0xEE, 0xF0, 0xF4)), BorderThickness = new Thickness(0, 1, 0, 0), Margin = new Thickness(0, 14, 0, 0), Child = g };
     }
 }
 
-// Shortcut, Win+V, click behaviour, history limits, ignored apps, startup.
-sealed class SettingsWindow : Window
+// Shortcut, Win+V, click behaviour, history limits, ignored apps, startup — and who made it.
+sealed class SettingsWindow : ChromeWindow
 {
     static readonly int[] RetentionChoices = { 0, 1, 7, 30, 90 };
 
     public Settings Result { get; }
     public bool StartWithWindows { get; private set; }
 
-    public SettingsWindow(Settings current, bool startWithWindows, Action suspendHotkey, Action resumeHotkey)
+    readonly Action suspendHotkey, resumeHotkey;
+    readonly Border hotkeyBox;
+    bool recording;
+
+    public SettingsWindow(Settings current, bool startWithWindows, Action suspendHotkey, Action resumeHotkey) : base(S.SettingsTitle, 800, 690)
     {
         Result = current.Clone();
-        Title = S.SettingsTitle;
-        Width = 560;
-        SizeToContent = SizeToContent.Height;
-        ResizeMode = ResizeMode.NoResize;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        StartWithWindows = startWithWindows;
+        this.suspendHotkey = suspendHotkey;
+        this.resumeHotkey = resumeHotkey;
 
-        var grid = new Grid { Margin = new Thickness(20, 16, 20, 16) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
-        void Row(string? label, UIElement control)
+        // Shortcut recorder: click it, press the new combination. Esc cancels.
+        hotkeyBox = new Border
         {
-            int row = grid.RowDefinitions.Count;
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            if (label != null)
-            {
-                var l = new TextBlock { Text = label, Margin = new Thickness(0, 7, 16, 7), VerticalAlignment = VerticalAlignment.Top };
-                Grid.SetRow(l, row);
-                grid.Children.Add(l);
-            }
-            if (control is FrameworkElement fe) fe.Margin = new Thickness(0, 6, 0, 6);
-            Grid.SetRow(control, row);
-            Grid.SetColumn(control, 1);
-            grid.Children.Add(control);
-        }
-
-        var hotkey = new Button
-        {
-            Content = HotkeyText.Describe(Result.HotkeyModifiers, Result.HotkeyKey),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            MinWidth = 140,
-            Padding = new Thickness(10, 3, 10, 3),
+            CornerRadius = new CornerRadius(11),
+            Background = Theme.B(Theme.Surface),
+            BorderBrush = Theme.B(Theme.Line),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(6, 5, 1, 5),
+            MinWidth = 120,
+            MinHeight = 36,
+            Cursor = Cursors.Hand,
         };
-        hotkey.Click += (_, _) =>
-        {
-            suspendHotkey(); // otherwise the current shortcut can't be typed into the recorder
-            var dlg = new HotkeyDialog(Result.HotkeyModifiers, Result.HotkeyKey) { Owner = this };
-            if (dlg.ShowDialog() == true)
-            {
-                Result.HotkeyModifiers = dlg.Modifiers;
-                Result.HotkeyKey = dlg.Key;
-                hotkey.Content = HotkeyText.Describe(dlg.Modifiers, dlg.Key);
-            }
-            resumeHotkey();
-        };
-        Row(S.SetShortcut, hotkey);
-        var winV = new CheckBox { Content = S.ReplaceWinV, IsChecked = Result.ReplaceWinV };
-        Row(null, winV);
+        hotkeyBox.MouseLeftButtonUp += (_, e) => { e.Handled = true; if (!recording) StartRecording(); };
+        ShowHotkey();
 
-        var copy = new RadioButton { Content = S.ClickCopy, IsChecked = !Result.PasteOnClick, Margin = new Thickness(0, 0, 0, 4) };
-        var paste = new RadioButton { Content = S.ClickPaste, IsChecked = Result.PasteOnClick };
-        Row(S.ClickAction, new StackPanel { Children = { copy, paste } });
-
-        var edge = new CheckBox { Content = S.EdgeReveal, IsChecked = Result.RevealAtTopEdge };
-        Row(S.Reveal, edge);
-
-        var max = new TextBox { Text = Result.MaxItems.ToString(), Width = 70, VerticalContentAlignment = VerticalAlignment.Center };
-        var maxRow = new StackPanel { Orientation = Orientation.Horizontal };
-        maxRow.Children.Add(max);
-        maxRow.Children.Add(new TextBlock { Text = S.ItemsSuffix, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
-        Row(S.MaxItems, maxRow);
-
-        var retention = new ComboBox { Width = 120, HorizontalAlignment = HorizontalAlignment.Left };
-        foreach (var d in RetentionChoices) retention.Items.Add(d == 0 ? S.Never : string.Format(S.Days, d));
-        retention.SelectedIndex = Math.Max(0, Array.IndexOf(RetentionChoices, Result.RetentionDays));
-        Row(S.Retention, retention);
-
+        var winV = new Toggle(Result.ReplaceWinV);
+        winV.Changed += () => Result.ReplaceWinV = winV.IsOn;
+        var click = new Segmented(Result.PasteOnClick ? 1 : 0, S.ClickCopyShort, S.ClickPasteShort);
+        click.Changed += () => Result.PasteOnClick = click.Selected == 1;
+        var edge = new Toggle(Result.RevealAtTopEdge);
+        edge.Changed += () => Result.RevealAtTopEdge = edge.IsOn;
+        var startup = new Toggle(startWithWindows);
+        startup.Changed += () => StartWithWindows = startup.IsOn;
+        var max = Fields.Stepper(Result.MaxItems, 50, 2000, 50, v => Result.MaxItems = v);
+        var retention = new Segmented(Math.Max(0, Array.IndexOf(RetentionChoices, Result.RetentionDays)),
+            RetentionChoices.Select(d => d == 0 ? S.Never : string.Format(S.Days, d)).ToArray()) { HorizontalAlignment = HorizontalAlignment.Stretch };
+        retention.Changed += () => Result.RetentionDays = RetentionChoices[retention.Selected];
         var excluded = new TextBox
         {
             Text = string.Join(Environment.NewLine, Result.ExcludedApps),
             AcceptsReturn = true,
-            Height = 92,
+            Height = 74,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
-        var excludedPanel = new StackPanel();
-        excludedPanel.Children.Add(excluded);
-        excludedPanel.Children.Add(new TextBlock { Text = S.ExcludedNote, FontSize = 11, Foreground = Brushes.Gray, Margin = new Thickness(0, 3, 0, 0) });
-        Row(S.Excluded, excludedPanel);
-
-        var startup = new CheckBox { Content = S.StartWithWindows, IsChecked = startWithWindows };
-        Row(S.Startup, startup);
-
-        var ok = new Button { Content = S.OK, MinWidth = 88, Padding = new Thickness(10, 4, 10, 4), IsDefault = true };
-        var cancel = new Button { Content = S.Cancel, MinWidth = 88, Padding = new Thickness(10, 4, 10, 4), IsCancel = true, Margin = new Thickness(8, 0, 0, 0) };
-        ok.Click += (_, _) =>
-        {
-            Result.ReplaceWinV = winV.IsChecked == true;
-            Result.PasteOnClick = paste.IsChecked == true;
-            Result.RevealAtTopEdge = edge.IsChecked == true;
-            if (int.TryParse(max.Text.Trim(), out var n)) Result.MaxItems = Math.Clamp(n, 10, 5000);
-            Result.RetentionDays = RetentionChoices[Math.Max(0, retention.SelectedIndex)];
+        excluded.TextChanged += (_, _) =>
             Result.ExcludedApps = excluded.Text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
-            StartWithWindows = startup.IsChecked == true;
-            DialogResult = true;
-        };
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
-        buttons.Children.Add(ok);
-        buttons.Children.Add(cancel);
-        Grid.SetColumnSpan(buttons, 2);
-        Row(null, buttons);
-        Grid.SetColumn(buttons, 0);
 
-        Content = grid;
+        var left = new StackPanel();
+        left.Children.Add(Card(S.SectionShortcut,
+            Row(S.OpenClipboard, S.OpenClipboardNote, hotkeyBox),
+            Row(S.WinVTitle, S.WinVNote, winV)));
+        left.Children.Add(Spaced(Card(S.SectionHabits,
+            Row(S.ClickTitle, S.ClickNote, click),
+            Row(S.EdgeTitle, S.EdgeNote, edge),
+            Row(S.StartWithWindows, S.StartupNote, startup))));
+        var right = new StackPanel();
+        right.Children.Add(Card(S.SectionHistory,
+            Row(S.MaxItems, S.MaxItemsNote, max),
+            Stacked(S.Retention, null, retention)));
+        right.Children.Add(Spaced(Card(S.SectionPrivacy,
+            Stacked(S.Excluded, S.ExcludedNote, Fields.Wrap(excluded)))));
+
+        var columns = new Grid { Margin = new Thickness(36, 0, 36, 0) };
+        columns.ColumnDefinitions.Add(new ColumnDefinition());
+        columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
+        columns.ColumnDefinitions.Add(new ColumnDefinition());
+        columns.Children.Add(left);
+        Grid.SetColumn(right, 2);
+        columns.Children.Add(right);
+
+        var header = new StackPanel { Margin = new Thickness(36, 0, 36, 20) };
+        header.Children.Add(Theme.Text("PREFERENCES", 10, Theme.Muted, bold: true));
+        var h = Theme.Text(S.SettingsHeading, 26, Theme.Ink, bold: true);
+        h.Margin = new Thickness(0, 6, 0, 0);
+        header.Children.Add(h);
+        var sub = Theme.Text(S.SettingsSubtitle, 12, Theme.Muted);
+        sub.Margin = new Thickness(0, 8, 0, 0);
+        header.Children.Add(sub);
+
+        var cancel = new Pill(S.Cancel, false) { Margin = new Thickness(0, 0, 8, 0) };
+        var save = new Pill(S.Save, true) { MinWidth = 132 };
+        cancel.Click += Close;
+        save.Click += () => DialogResult = true;
+
+        Body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        Body.RowDefinitions.Add(new RowDefinition());
+        Body.RowDefinitions.Add(new RowDefinition { Height = new GridLength(84) });
+        Body.Children.Add(header);
+        Grid.SetRow(columns, 1);
+        Body.Children.Add(columns);
+        var footer = TextEditWindow.Footer(AuthorBadge(), cancel, save);
+        Grid.SetRow(footer, 2);
+        Body.Children.Add(footer);
+
+        PreviewKeyDown += OnKey;
+        Closed += (_, _) => { if (recording) resumeHotkey(); };
+    }
+
+    static UIElement Spaced(UIElement e)
+    {
+        if (e is FrameworkElement fe) fe.Margin = new Thickness(0, 16, 0, 0);
+        return e;
+    }
+
+    // Avatar, name, GitHub link and version.
+    static UIElement AuthorBadge()
+    {
+        var avatar = new Border
+        {
+            Width = 34, Height = 34, CornerRadius = new CornerRadius(17), Background = Theme.B(Theme.Ink),
+            Child = new TextBlock { Text = "S", FontFamily = new FontFamily("Segoe UI"), FontWeight = FontWeights.Bold, FontSize = 15, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+        };
+        var name = new StackPanel { Orientation = Orientation.Horizontal };
+        name.Children.Add(Theme.Text(About.Author, 12.5, Theme.Ink, bold: true));
+        var version = Theme.Text($"DUN v{About.Version}", 11, Theme.Faint);
+        version.Margin = new Thickness(8, 1, 0, 0);
+        name.Children.Add(version);
+        var link = new TextBlock
+        {
+            Text = "github.com/sandun2027  ↗",
+            FontSize = 11.5,
+            Foreground = Theme.B(Theme.Body),
+            Cursor = Cursors.Hand,
+            Margin = new Thickness(0, 3, 0, 0),
+            ToolTip = About.GitHub,
+        };
+        link.MouseEnter += (_, _) => { link.TextDecorations = TextDecorations.Underline; link.Foreground = Theme.B(Theme.Ink); };
+        link.MouseLeave += (_, _) => { link.TextDecorations = null; link.Foreground = Theme.B(Theme.Body); };
+        link.MouseLeftButtonUp += (_, e) => { e.Handled = true; About.Open(About.GitHub); };
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+        text.Children.Add(name);
+        text.Children.Add(link);
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.Add(avatar);
+        row.Children.Add(text);
+        return row;
+    }
+
+    void ShowHotkey(string? partial = null)
+    {
+        hotkeyBox.BorderBrush = Theme.B(recording ? Theme.Focus : Theme.Line);
+        hotkeyBox.Background = recording ? Brushes.White : Theme.B(Theme.Surface);
+        if (recording && partial == null)
+        {
+            var t = Theme.Text(S.PressShortcut, 12, Theme.Muted);
+            t.Margin = new Thickness(6, 0, 6, 0);
+            t.VerticalAlignment = VerticalAlignment.Center;
+            hotkeyBox.Child = t;
+        }
+        else hotkeyBox.Child = Fields.Keycaps(partial ?? HotkeyText.Describe(Result.HotkeyModifiers, Result.HotkeyKey), recording);
+    }
+
+    void StartRecording()
+    {
+        recording = true;
+        suspendHotkey(); // otherwise the current shortcut can't be pressed here
+        ShowHotkey();
+        Keyboard.Focus(this);
+    }
+
+    void StopRecording()
+    {
+        recording = false;
+        resumeHotkey();
+        ShowHotkey();
+    }
+
+    protected override void Cancel()
+    {
+        if (recording) StopRecording();
+        else Close();
+    }
+
+    void OnKey(object sender, KeyEventArgs e)
+    {
+        if (!recording || e.Key == Key.Escape) return;
+        e.Handled = true;
+        var k = e.Key == Key.System ? e.SystemKey : e.Key;
+        var mods = (uint)Keyboard.Modifiers;
+        if (k is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin)
+        {
+            ShowHotkey(HotkeyText.Modifiers(mods) + "…");
+            return;
+        }
+        if (mods == 0) return;
+        Result.HotkeyModifiers = mods;
+        Result.HotkeyKey = (uint)KeyInterop.VirtualKeyFromKey(k);
+        StopRecording();
     }
 }

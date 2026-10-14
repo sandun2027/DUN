@@ -11,7 +11,7 @@
     <ApplicationIcon>assets\DUN.ico</ApplicationIcon>
     <RootNamespace>DUN</RootNamespace>
     <AssemblyName>DUN</AssemblyName>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <Product>DUN</Product>
     <Authors>Sandun</Authors>
     <Company>Sandun</Company>
@@ -22,6 +22,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The installer window is a separate .NET Framework program, built by scripts/build-release.ps1. -->
+    <Compile Remove="installer/**" />
+    <Page Remove="installer/**" />
+    <None Remove="installer/**" />
     <EmbeddedResource Include="assets\DUN.ico" LogicalName="DUN.ico" />
   </ItemGroup>
 
